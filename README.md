@@ -24,13 +24,32 @@ pip install .
 ## Usage
 
 ```
-from batch_regression.linear import LinearRegression
-from batch_regression.quadratic import QuadraticRegression
-from batch_regression.cubic import CubicRegression
-from batch_regression.nonlinear import NonlinearRegression
+B = 1048576   # number of regression problems (batches)
+N = 1000  # number of samples per regression
 
-# Example usage for linear regression
-model = LinearRegression()
-model.fit(X_train, y_train)
-predictions = model.predict(X_test)
+print("Creating data")
+torch.manual_seed(42)
+
+# Create random x values.
+x = torch.randn(B, N)
+
+# Define true regression parameters.
+true_slope = 2.0
+true_intercept = 3.0
+
+# Generate y values with added noise.
+noise = torch.randn(B, N) * 0.1
+y = true_slope * x + true_intercept + noise
+
+print("Running regression")
+
+# Instantiate the regression class (default precision: float32)
+regressor = BatchLinearRegression(precision="float32")
+
+# Perform batch regression.
+slope, intercept, r2 = regressor.fit(x, y)
+
+print("Mean slope:", slope.mean().item())
+print("Mean intercept:", intercept.mean().item())
+print("Mean R²:", r2.mean().item())
 ```
