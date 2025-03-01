@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import torch
 
-class BatchMultiLinearRegression:
+class BatchMultilinearRegression:
     def __init__(self, device: torch.device = None, precision="float32"):
         """
         Initialize the BatchMultiLinearRegression instance.
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     print("Running regression")
 
     # Instantiate the regression class (default precision: float32)
-    regressor = BatchMultiLinearRegression(precision="float32")
+    regressor = BatchMultilinearRegression(precision="float32")
 
     t = time.time()
 
