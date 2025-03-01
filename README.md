@@ -11,6 +11,12 @@ This can solve ~1 million linear regression problems with 500-1000 points in a c
 - **Cubic Regression:** Handles cubic regression modeling.
 - **Nonlinear Regression:** Supports customizable nonlinear regression models.
 
+- **Time Series Statistical Testing:**
+  - **KPSS Test:** Tests for stationarity (with options for constant-only or constant-plus-trend models) and returns the KPSS statistic (and trend coefficient if applicable).
+  - **ADF Test:** Performs the Augmented Dickey-Fuller test to check for unit roots; supports both constant and constant-plus-trend regressions and returns the test statistic (and trend slope when applicable).
+  - **Johansen Test:** Assesses cointegration among multiple time series by computing eigenvalues and trace statistics.
+  - **Hurst Exponent Estimation:** Estimates the Hurst exponent using Rescaled Range (R/S) analysis to gauge long-term memory in time series.
+
 ## Installation
 
 To install the library, clone the repository and install it using pip:
