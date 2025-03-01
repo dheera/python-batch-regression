@@ -6,3 +6,4 @@ from .multilinear import BatchMultilinearRegression
 from .kpss import kpss_test
 from .adf import adf_test
 from .johansen import johansen_test
+from .hurst import estimate_hurst_exponent
