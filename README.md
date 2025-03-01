@@ -1,8 +1,8 @@
 # Pytorch Batch Regression Library
 
-A Python library for performing various regression analyses including linear, quadratic, cubic, and nonlinear regression models. This library is designed for batch processing of regression models on multiple datasets, making it easy to switch between different types of regressions as needed.
+A Python library for performing PyTorch-accelerated regression analyses including linear, quadratic, cubic, and nonlinear regression models. This library is designed for batch processing of regression models on multiple datasets, making it easy to switch between different types of regressions as needed.
 
-This can solve ~1 million linear regression problems with 500-1000 points in a couple seconds on a V100 GPU. Much faster than scipy!
+This can solve ~1 million parallel linear regression problems with 500-1000 points each in a couple seconds on a V100 GPU. Much faster than scipy!
 
 ## Features
 
