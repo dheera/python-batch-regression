@@ -7,3 +7,15 @@ from .kpss import kpss_test
 from .adf import adf_test
 from .johansen import johansen_test
 from .hurst import estimate_hurst_exponent
+
+__all__ = [
+    'BatchLinearRegression',
+    'BatchMultilinearRegression',
+    'BatchQuadraticRegression',
+    'BatchCubicRegression',
+    'BatchNonlinearRegression',
+    'estimate_hurst_exponent',
+    'johansen_test',
+    'adf_test',
+    'kpss_test'
+]
