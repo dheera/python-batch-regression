@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 import torch
+import matplotlib.pyplot as plt
 
 def estimate_hurst_exponent(time_series: torch.Tensor, min_window: int = 8, max_window: int = None, num_scales: int = 20) -> torch.Tensor:
     """
@@ -14,6 +16,7 @@ def estimate_hurst_exponent(time_series: torch.Tensor, min_window: int = 8, max_
     Returns:
         torch.Tensor: Tensor of shape [B] containing the estimated Hurst exponent for each series.
     """
+
     B, T = time_series.shape
     if max_window is None:
         max_window = T // 2
@@ -79,20 +82,72 @@ def estimate_hurst_exponent(time_series: torch.Tensor, min_window: int = 8, max_
     return H
 
 if __name__ == '__main__':
-    # Example usage:
-    import torch
-    B = 5    # number of series
-    T = 1024 # length of each series
     torch.manual_seed(42)
-    
-    # Simulate a random walk (non-stationary) as an example.
-    random_walk = torch.zeros(B, T)
-    random_walk[:, 0] = torch.randn(B)
-    for t in range(1, T):
-        random_walk[:, t] = random_walk[:, t-1] + torch.randn(B) * 0.5
+    B = 3    # number of series per process type
+    T = 1024 # length of each series
 
-    # Estimate Hurst exponents for the batch.
-    H_est = estimate_hurst_exponent(random_walk)
-    print("Estimated Hurst exponents:")
-    print(H_est)
+    # -------------------------------
+    # Brownian Motion (Random Walk)
+    # -------------------------------
+    brownian_motion = torch.zeros(B, T)
+    brownian_motion[:, 0] = torch.randn(B)
+    for t in range(1, T):
+        brownian_motion[:, t] = brownian_motion[:, t-1] + torch.randn(B)
+
+    # -------------------------------------
+    # Mean-Reverting Process (Ornstein–Uhlenbeck)
+    # -------------------------------------
+    theta = 0.1   # speed of reversion
+    mu = 0.0      # long-term mean
+    sigma = 1.0   # volatility
+    mean_reverting = torch.zeros(B, T)
+    mean_reverting[:, 0] = torch.randn(B)
+    for t in range(1, T):
+        dt = 1.0
+        noise = sigma * torch.randn(B)
+        mean_reverting[:, t] = mean_reverting[:, t-1] + theta * (mu - mean_reverting[:, t-1]) * dt + noise
+
+    # ---------------------------
+    # Trending Process
+    # ---------------------------
+    slope = 0.05  # constant drift per time step
+    trending = torch.zeros(B, T)
+    for t in range(T):
+        trending[:, t] = slope * t + torch.randn(B) * 1.0  # linear trend plus noise
+
+    # Estimate Hurst exponents
+    H_brownian = estimate_hurst_exponent(brownian_motion)
+    H_mean_reverting = estimate_hurst_exponent(mean_reverting)
+    H_trending = estimate_hurst_exponent(trending)
+
+    # Print the estimated Hurst exponents for each series
+    print("Estimated Hurst exponents for Brownian Motion:")
+    for i in range(B):
+        print(f" Series {i}: {H_brownian[i].item():.3f}")
+
+    print("\nEstimated Hurst exponents for Mean-Reverting Process:")
+    for i in range(B):
+        print(f" Series {i}: {H_mean_reverting[i].item():.3f}")
+
+    print("\nEstimated Hurst exponents for Trending Process:")
+    for i in range(B):
+        print(f" Series {i}: {H_trending[i].item():.3f}")
+
+    # Optionally, plot one series from each type to visually compare their behavior.
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(3, 1, 1)
+    plt.plot(brownian_motion[0].numpy())
+    plt.title("Brownian Motion (Random Walk)")
+
+    plt.subplot(3, 1, 2)
+    plt.plot(mean_reverting[0].numpy())
+    plt.title("Mean-Reverting Process (Ornstein–Uhlenbeck)")
+
+    plt.subplot(3, 1, 3)
+    plt.plot(trending[0].numpy())
+    plt.title("Trending Process")
+
+    plt.tight_layout()
+    plt.show()
 
