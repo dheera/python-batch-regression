@@ -45,7 +45,7 @@ def adf_test(time_series: torch.Tensor, regression: str = "c", lags: int = 0):
     X_parts.append(ones)
 
     # Trend term if regression is 'ct'
-    trend_coef = None
+    trend_slope = None
     if regression.lower() == "ct":
         # Create a trend variable from 1 to M for each series.
         trend = torch.linspace(1, M, M, device=time_series.device, dtype=time_series.dtype)
@@ -87,7 +87,7 @@ def adf_test(time_series: torch.Tensor, regression: str = "c", lags: int = 0):
     else:  # regression 'ct'
         idx_gamma = 2  # beta = [constant, trend, gamma, ...]
         # Also, return the trend coefficient (second element).
-        trend_coef = beta[:, 1]
+        trend_slope = beta[:, 1]
 
     gamma_coeff = beta[:, idx_gamma]
 
@@ -98,7 +98,7 @@ def adf_test(time_series: torch.Tensor, regression: str = "c", lags: int = 0):
     # ADF test statistic is the t-statistic for gamma.
     adf_stat = gamma_coeff / se_gamma
 
-    return adf_stat, trend_coef
+    return adf_stat, trend_slope
 
 if __name__ == '__main__':
     # Example usage:
@@ -123,7 +123,7 @@ if __name__ == '__main__':
     print("Trend Coefficient:", trend_rw)
 
     print("\nADF statistic for stationary series (regression='ct', lags=5):")
-    adf_stat_stat, trend_stat = adf_test(stationary_series, regression="ct", lags=5)
+    adf_stat_stat, trend_slope = adf_test(stationary_series, regression="ct", lags=5)
     print("ADF Statistic:", adf_stat_stat)
-    print("Trend Coefficient:", trend_stat)
+    print("Trend Coefficient:", trend_slope)
 

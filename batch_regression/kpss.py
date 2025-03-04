@@ -27,7 +27,8 @@ def kpss_test(time_series: torch.Tensor, regression: str = "c", lags: int = 0):
     B, T = time_series.shape
     device = time_series.device
     t = torch.arange(1, T + 1, device=device, dtype=time_series.dtype)  # time index 1,...,T
-    trend_coef = None
+    trend_slope = None
+    trend_intercept = None
 
     # Compute residuals based on the type of regression.
     if regression.lower() == "c":
@@ -50,11 +51,15 @@ def kpss_test(time_series: torch.Tensor, regression: str = "c", lags: int = 0):
         cov_ty = (y_centered * t_centered).mean(dim=1, keepdim=True)  # shape [B, 1]
         # Estimate the trend coefficient (slope) for each series.
         beta = cov_ty / var_t  # shape [B, 1]
-        trend_coef = beta.squeeze(1)  # shape [B]
+        trend_slope = beta.squeeze(1)  # shape [B]
         # Compute the intercept.
         alpha = mean_y - beta * mean_t  # shape [B, 1]
         # Compute the fitted trend.
         trend = alpha + beta * t.unsqueeze(0)  # shape [B, T]
+        # This is for convenience so that the user of this can compute the continuing trend
+        # starting with beta * t + alpha of their continuing series
+        # without having to know the length of t in this series
+        trend_intercept = (alpha + beta * mean_t).squeeze(1)
         # Residuals: deviation from the fitted trend.
         residuals = time_series - trend
     else:
@@ -82,7 +87,7 @@ def kpss_test(time_series: torch.Tensor, regression: str = "c", lags: int = 0):
     sum_S2 = (S ** 2).sum(dim=1)  # shape [B]
     kpss_stat = sum_S2 / (T ** 2 * sigma2)
 
-    return kpss_stat, trend_coef
+    return kpss_stat, trend_slope, trend_intercept
 
 if __name__ == '__main__':
     # Example usage:
@@ -102,12 +107,12 @@ if __name__ == '__main__':
         random_walk[:, t] = random_walk[:, t-1] + torch.randn(B) * 0.1
 
     print("KPSS statistic for stationary series (regression='ct', lags=5):")
-    stat_stationary, trend_stationary = kpss_test(stationary_series, regression="ct", lags=5)
+    stat_stationary, trend_slope, trend_intercept = kpss_test(stationary_series, regression="ct", lags=5)
     print("KPSS Statistic:", stat_stationary)
-    print("Trend Coefficient:", trend_stationary)
+    print("Trend Coefficient:", trend_slope)
 
     print("\nKPSS statistic for random walk series (regression='ct', lags=5):")
-    stat_rw, trend_rw = kpss_test(random_walk, regression="ct", lags=5)
+    stat_rw, trend_slope, trend_intercept = kpss_test(random_walk, regression="ct", lags=5)
     print("KPSS Statistic:", stat_rw)
-    print("Trend Coefficient:", trend_rw)
+    print("Trend Coefficient:", trend_slope)
 

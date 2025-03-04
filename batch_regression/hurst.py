@@ -19,9 +19,9 @@ def estimate_hurst_exponent(time_series: torch.Tensor, min_window: int = 8, max_
         max_window = T // 2
 
     # Generate logarithmically spaced window sizes (scales)
-    scales = torch.logspace(torch.log10(torch.tensor(min_window, dtype=torch.float32)),
-                            torch.log10(torch.tensor(max_window, dtype=torch.float32)),
-                            steps=num_scales).round().long()
+    scales = torch.logspace(torch.log10(torch.tensor(min_window, device=time_series.device, dtype=torch.float32)),
+                            torch.log10(torch.tensor(max_window, device=time_series.device, dtype=torch.float32)),
+                            steps=num_scales).round().long().to(time_series.device)
     scales = torch.unique(scales)  # ensure unique scales
     num_scales = scales.numel()
 
