@@ -97,7 +97,7 @@ if __name__ == '__main__':
     import time
 
     # Simulation parameters.
-    B = 3    # number of batches/regression problems
+    B = 10    # number of batches/regression problems
     T = 200  # number of time points
     n = 3    # number of series per batch
 
