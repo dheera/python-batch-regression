@@ -1,103 +1,126 @@
 #!/usr/bin/env python3
 import torch
 
-def compute_rss(y: torch.Tensor, regression: str):
+def compute_rss_const(y: torch.Tensor):
     """
-    Compute the residual sum of squares (RSS) for a single time series y given the regression model.
-    
-    Args:
-        y (torch.Tensor): 1D tensor of observations.
-        regression (str): 'c' for constant or 'ct' for constant-plus-trend.
-    
-    Returns:
-        rss (torch.Tensor): Residual sum of squares (scalar tensor).
-        k (int): Number of estimated parameters (1 for 'c', 2 for 'ct').
-    """
-    n = y.shape[0]
-    if regression.lower() == "c":
-        y_bar = y.mean()
-        rss = ((y - y_bar) ** 2).sum()
-        k = 1
-    elif regression.lower() == "ct":
-        t = torch.arange(1, n + 1, device=y.device, dtype=y.dtype)
-        # Design matrix with constant and trend.
-        X = torch.stack([torch.ones(n, device=y.device, dtype=y.dtype), t], dim=1)
-        beta = torch.linalg.lstsq(X, y.unsqueeze(1), rcond=None).solution.squeeze()
-        fitted = X @ beta
-        rss = ((y - fitted) ** 2).sum()
-        k = 2
-    else:
-        raise ValueError("regression must be either 'c' or 'ct'")
-    return rss, k
+    Vectorized computation of the residual sum of squares (RSS) for a constant-only model.
+    For each series y (of shape [B, n]), returns the RSS using the formula:
 
-def qlr_test(time_series: torch.Tensor, regression: str = "c", trim: float = 0.15):
-    """
-    Perform the QLR (sup-Wald) test for an unknown structural break in a batch of time series.
-    
-    For each series, the procedure is:
-      1. Compute the pooled RSS for the full series.
-      2. For candidate break dates in the range [trim*T, (1-trim)*T], compute the Chow test F statistic:
-             F = ((RSS_pooled - (RSS_1 + RSS_2)) / k) / ((RSS_1 + RSS_2) / (n1+n2-2*k))
-      3. The QLR statistic is the maximum F value over all candidate break dates.
-    
+        RSS = sum(y^2) - (sum(y)^2) / n
+
     Args:
-        time_series (torch.Tensor): Tensor of shape [B, T] representing the series.
-        regression (str): 'c' for constant or 'ct' for constant-plus-trend model.
-        trim (float): Proportion of observations to trim from both ends when searching for the break date (default: 0.15).
-    
+        y (torch.Tensor): Tensor of shape [B, n].
+
+    Returns:
+        rss (torch.Tensor): Tensor of shape [B] containing the RSS for each series.
+    """
+    n = y.shape[1]
+    sum_y = y.sum(dim=1)
+    sum_y_sq = (y**2).sum(dim=1)
+    rss = sum_y_sq - (sum_y**2) / n
+    return rss
+
+def qlr_test(time_series: torch.Tensor, trim: float = 0.15):
+    """
+    Vectorized implementation of the QLR (sup-Wald) test for an unknown structural break
+    for a batch of time series under the constant-only model.
+
+    For each candidate break date, we compute:
+        rss1 = RSS for the first segment (observations 0...candidate-1)
+        rss2 = RSS for the second segment (observations candidate...T-1)
+    and the pooled RSS (rss_p) is computed over the entire series.
+
+    The Chow test statistic for a candidate break is given by:
+
+        F_candidate = ((rss_p - (rss1+rss2)) / k) / ((rss1+rss2) / (T - 2*k))
+
+    where for the constant model, k=1 and T is the full series length.
+    The QLR statistic is the maximum F_candidate over candidate break dates.
+
+    Args:
+        time_series (torch.Tensor): Tensor of shape [B, T] representing B time series.
+        trim (float): Proportion of observations to trim from both ends when searching for the break date.
+
     Returns:
         qlr_stats (torch.Tensor): Tensor of shape [B] with the QLR test statistic for each series.
-        break_indices (list): A list of length B containing the candidate break index that maximizes the F statistic.
+        break_indices (torch.Tensor): Tensor of shape [B] with the candidate break index (int) that maximizes the F statistic.
     """
     B, T = time_series.shape
-    qlr_stats = torch.empty(B, dtype=time_series.dtype, device=time_series.device)
-    break_indices = []
-    
-    # Define candidate break index range based on trimming.
+    k = 1  # number of parameters for constant-only model
+
+    # Define candidate break index range.
     start_candidate = int(trim * T)
     end_candidate = int((1 - trim) * T)
-    
-    for i in range(B):
-        y = time_series[i]
-        rss_p, k = compute_rss(y, regression)
-        max_F = -float("inf")
-        best_break = None
-        
-        # Evaluate Chow test over candidate break dates.
-        for candidate in range(start_candidate, end_candidate):
-            n1 = candidate
-            n2 = T - candidate
-            if n1 < k or n2 < k:
-                continue
-            rss1, _ = compute_rss(y[:candidate], regression)
-            rss2, _ = compute_rss(y[candidate:], regression)
-            numerator = (rss_p - (rss1 + rss2)) / k
-            denominator = (rss1 + rss2) / (n1 + n2 - 2 * k)
-            F_candidate = numerator / denominator
-            if F_candidate > max_F:
-                max_F = F_candidate
-                best_break = candidate
-        
-        qlr_stats[i] = max_F
-        break_indices.append(best_break)
-    
-    return qlr_stats, break_indices
+    candidates = torch.arange(start_candidate, end_candidate, device=time_series.device, dtype=torch.float32)
+    n_candidates = candidates.numel()  # number of candidate break points
+
+    # Precompute cumulative sums and cumulative sum of squares for each series.
+    S = torch.cumsum(time_series, dim=1)        # shape [B, T]
+    S_sq = torch.cumsum(time_series**2, dim=1)    # shape [B, T]
+
+    # Total sums (last column) for each series.
+    S_total = S[:, -1].unsqueeze(1)       # [B, 1]
+    S_sq_total = S_sq[:, -1].unsqueeze(1) # [B, 1]
+
+    # Compute pooled RSS for each series.
+    rss_p = S_sq_total.squeeze(1) - (S_total.squeeze(1)**2) / T  # shape [B]
+
+    # For each candidate break, we need the cumulative sums at index candidate-1.
+    idx = (candidates - 1).long()           # shape [n_candidates]
+    idx_exp = idx.unsqueeze(0).expand(B, -1)  # shape [B, n_candidates]
+
+    # Gather S and S_sq at these indices.
+    S_candidate = torch.gather(S, dim=1, index=idx_exp)       # shape [B, n_candidates]
+    S_sq_candidate = torch.gather(S_sq, dim=1, index=idx_exp)   # shape [B, n_candidates]
+
+    # Expand candidates to shape [B, n_candidates].
+    candidates_exp = candidates.unsqueeze(0).expand(B, -1)      # shape [B, n_candidates]
+    # Number of observations in the first segment is candidates_exp and in the second segment T - candidate.
+    n2 = T - candidates_exp                                   # shape [B, n_candidates]
+
+    # Compute RSS for first segment.
+    rss1 = S_sq_candidate - (S_candidate**2) / candidates_exp   # shape [B, n_candidates]
+
+    # Compute sums for second segment.
+    S2 = S_total - S_candidate                                  # shape [B, n_candidates]
+    S_sq2 = S_sq_total - S_sq_candidate                         # shape [B, n_candidates]
+    rss2 = S_sq2 - (S2**2) / n2                                  # shape [B, n_candidates]
+
+    # Compute Chow test F statistic for each candidate.
+    df = T - 2 * k  # degrees of freedom in denominator.
+    rss_p_exp = rss_p.unsqueeze(1).expand(-1, n_candidates)      # shape [B, n_candidates]
+    numerator = (rss_p_exp - (rss1 + rss2)) / k                  # shape [B, n_candidates]
+    denominator = (rss1 + rss2) / df                             # shape [B, n_candidates]
+    F_candidates = numerator / denominator                     # shape [B, n_candidates]
+
+    # For each series, select the candidate with the maximum F statistic.
+    max_F, argmax = F_candidates.max(dim=1)                      # shapes: [B], [B]
+    best_breaks = candidates_exp.gather(dim=1, index=argmax.unsqueeze(1)).squeeze(1).long()  # shape [B]
+
+    return max_F, best_breaks
 
 if __name__ == '__main__':
-    # Example usage:
     torch.manual_seed(42)
     B = 5    # number of series
     T = 500  # number of time points
-    true_break = 250  # true break point for simulation
-    
-    # Simulate a batch of series with a structural break in the mean.
-    series_batch = torch.empty(B, T)
+
+    # For each series, choose a random true break index within the candidate region.
+    true_breaks = []
+    series_list = []
     for i in range(B):
-        seg1 = torch.randn(true_break)           # first segment with mean 0
-        seg2 = torch.randn(T - true_break) + 2.0   # second segment with shifted mean
-        series_batch[i] = torch.cat([seg1, seg2])
-    
-    qlr_stats, break_indices = qlr_test(series_batch, regression="c", trim=0.15)
+        # Choose a random true break index between 20% and 80% of T.
+        true_break = torch.randint(int(0.2 * T), int(0.8 * T), (1,)).item()
+        true_breaks.append(true_break)
+        # Simulate series: first segment with mean 0; second segment with mean shift +2.
+        seg1 = torch.randn(1, true_break)
+        seg2 = torch.randn(1, T - true_break) + 2.0
+        series = torch.cat([seg1, seg2], dim=1)
+        series_list.append(series)
+
+    series_batch = torch.cat(series_list, dim=0)  # shape [B, T]
+
+    # Run the vectorized QLR test for the constant-only model.
+    qlr_stats, break_indices = qlr_test(series_batch, trim=0.15)
     for i in range(B):
-        print(f"Series {i}: QLR test statistic = {qlr_stats[i].item():.4f}, estimated break index = {break_indices[i]}")
+        print(f"Series {i}: True break index = {true_breaks[i]}, Estimated break index = {break_indices[i].item()}, QLR test statistic = {qlr_stats[i].item():.4f}")
 
