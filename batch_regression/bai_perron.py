@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# TODO: not sure if there is a good way to vectorize this over batches due to number of breakpoints being different for each series
+
 import torch
 
 def compute_segment_rss(y: torch.Tensor, start: int, end: int, regression: str):
