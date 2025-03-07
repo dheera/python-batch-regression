@@ -1,21 +1,30 @@
-# Pytorch Batch Regression Library
+# PyTorch Batch Regression Library
 
-A Python library for performing PyTorch-accelerated regression analyses including linear, quadratic, cubic, and nonlinear regression models. This library is designed for batch processing of regression models on multiple datasets, making it easy to switch between different types of regressions as needed.
+A Python library for performing PyTorch-accelerated regression analyses and time series statistical testing in batch. This library is designed for efficiently processing millions of regression problems simultaneously on a GPU – for example, solving ~1 million parallel linear regression problems with 500-1000 points each in a couple of seconds on a V100 GPU. Much faster than conventional CPU-based libraries like SciPy!
 
-This can solve ~1 million parallel linear regression problems with 500-1000 points each in a couple seconds on a V100 GPU. Much faster than scipy!
+It also includes time series statistical tests that can be done in batches on a GPU.
 
 ## Features
 
-- **Linear Regression:** Implements simple and multiple linear regression models.
+### Regression Models
+- **Linear Regression:** Simple and multiple linear regression models.
 - **Quadratic Regression:** Fits quadratic relationships to data.
 - **Cubic Regression:** Handles cubic regression modeling.
 - **Nonlinear Regression:** Supports customizable nonlinear regression models.
+- **Multilinear Regression:** Efficient estimation of models with multiple predictors.
+- **Quadratic Regression:** For modeling second-degree polynomial relationships.
 
-- **Time Series Statistical Testing:**
-  - **KPSS Test:** Tests for stationarity (with options for constant-only or constant-plus-trend models) and returns the KPSS statistic (and trend coefficient if applicable).
-  - **ADF Test:** Performs the Augmented Dickey-Fuller test to check for unit roots; supports both constant and constant-plus-trend regressions and returns the test statistic (and trend slope when applicable).
-  - **Johansen Test:** Assesses cointegration among multiple time series by computing eigenvalues and trace statistics.
-  - **Hurst Exponent Estimation:** Estimates the Hurst exponent using Rescaled Range (R/S) analysis to gauge long-term memory in time series.
+### Time Series Statistical Testing
+- **KPSS Test:** Tests for stationarity around a constant or a deterministic trend. Returns the KPSS statistic (and trend coefficients if applicable).
+- **ADF Test:** Performs the Augmented Dickey-Fuller test to check for unit roots; supports both constant-only and constant-plus-trend models.
+- **Johansen Test:** Assesses cointegration among multiple time series by computing eigenvalues and trace statistics.
+- **Chow Test:** Tests for a structural break at a known break date by comparing RSS from pooled and segmented regressions.
+- **QLR Test (Sup-Wald):** Searches over a range of candidate break dates to detect an unknown structural break.
+- **CUSUM Test:** Computes the cumulative sum (CUSUM) of residuals to detect parameter instability over time.
+- **CUSUM of Squares Test:** Uses the cumulative sum of squared residuals to detect abrupt changes in variance.
+- **ICSS Algorithm:** Iterative Cumulative Sum of Squares method for detecting multiple variance breakpoints.
+- **Bai–Perron Test:** A dynamic programming approach to detect multiple structural breaks (with model selection via BIC).
+- **Hurst Exponent Estimation:** Estimates the Hurst exponent using rescaled range (R/S) analysis to gauge long-term memory in time series.
 
 ## Installation
 
@@ -28,6 +37,8 @@ pip install .
 ```
 
 ## Usage
+
+See the individual .py files for examples of how to use all the above tests.
 
 ```
 B = 1048576   # number of regression problems (batches)
